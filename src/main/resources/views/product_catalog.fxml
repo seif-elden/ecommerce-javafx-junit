@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.*?>
+
+<BorderPane xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.ecommerce.controllers.CatalogController" stylesheets="@../css/styles.css">
+    <top>
+        <ToolBar>
+            <Button text="My Profile" onAction="#handleProfile"/>
+            <Button text="My Cart" onAction="#handleCart"/>
+            <Button text="Logout" onAction="#handleLogout"/>
+        </ToolBar>
+    </top>
+
+    <left>
+        <ListView fx:id="categoryListView" style="-fx-pref-width: 200;"/>
+    </left>
+
+    <center>
+        <TilePane fx:id="productTilePane" hgap="20" vgap="20" style="-fx-padding: 20;" prefColumns="3"/>
+    </center>
+
+</BorderPane>

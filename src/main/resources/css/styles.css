@@ -1,0 +1,39 @@
+/* Base Styles */
+.root {
+    -fx-font-family: 'Segoe UI', Arial;
+    -fx-base: #3498db;
+}
+
+/* Buttons */
+.primary-button {
+    -fx-background-color: #2ecc71;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+}
+
+.login-button {
+    -fx-background-color: #3498db;
+    -fx-text-fill: white;
+    -fx-pref-width: 200;
+}
+
+/* Fields */
+.login-field {
+    -fx-pref-width: 250;
+    -fx-pref-height: 35;
+}
+
+/* Table Styles */
+.table-view {
+    -fx-base: white;
+    -fx-control-inner-background: white;
+}
+
+.table-row-cell:odd {
+    -fx-background-color: #f9f9f9;
+}
+
+/* Tab Pane */
+.tab-pane .tab-header-area .tab-header-background {
+    -fx-background-color: #ecf0f1;
+}

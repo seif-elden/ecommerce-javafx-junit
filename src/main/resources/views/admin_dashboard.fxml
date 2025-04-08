@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.*?>
+
+<BorderPane xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.ecommerce.controllers.AdminController" stylesheets="@../css/styles.css">
+    <top>
+        <ToolBar>
+            <Button text="Reload Products" onAction="#handleProducts"/>
+            <Button text="Reload Categories" onAction="#handleCategories"/>
+            <Button text="View Orders" onAction="#handleOrders"/>
+            <Button text="Logout" onAction="#handleLogout"/>
+        </ToolBar>
+    </top>
+
+    <center>
+        <TabPane>
+            <Tab text="Products">
+                <VBox spacing="10" style="-fx-padding: 20;">
+                    <HBox spacing="10">
+                        <Button text="Add Product" onAction="#handleAddProduct"/>
+                        <ComboBox fx:id="categoryFilterCombo" />
+                    </HBox>
+                    <TableView fx:id="productsTable">
+                        <columns>
+                            <TableColumn text="ID" fx:id="productIdCol"/>
+                            <TableColumn text="Name" fx:id="productNameCol"/>
+                            <TableColumn text="Price" fx:id="productPriceCol"/>
+                            <TableColumn text="Stock" fx:id="productStockCol"/>
+                            <TableColumn text="Actions" fx:id="productActionsCol"/>
+                        </columns>
+                    </TableView>
+                </VBox>
+            </Tab>
+
+            <Tab text="Categories">
+                <VBox spacing="10" style="-fx-padding: 20;">
+                    <Button text="Add Category" onAction="#handleAddCategory"/>
+                    <TableView fx:id="categoriesTable">
+                        <columns>
+                            <TableColumn text="ID" fx:id="categoryIdCol"/>
+                            <TableColumn text="Name" fx:id="categoryNameCol"/>
+                            <TableColumn text="Actions" fx:id="categoryActionsCol"/>
+                        </columns>
+                    </TableView>
+                </VBox>
+            </Tab>
+        </TabPane>
+    </center>
+
+</BorderPane>

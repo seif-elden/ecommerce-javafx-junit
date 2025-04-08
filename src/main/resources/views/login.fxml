@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.*?>
+<?import javafx.scene.image.*?>
+
+<BorderPane xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.ecommerce.controllers.LoginController" stylesheets="@../css/styles.css">
+    <center>
+        <VBox alignment="CENTER" spacing="20" style="-fx-background-color: #f5f5f5;">
+            <ImageView fitWidth="150" fitHeight="150">
+                <Image url="@../images/logo.png"/>
+            </ImageView>
+
+            <Text text="Welcome Back!" style="-fx-font-size: 24; -fx-font-weight: bold;"/>
+
+            <VBox spacing="10" style="-fx-padding: 0 50;">
+                <TextField fx:id="usernameField" promptText="Username" styleClass="login-field"/>
+                <PasswordField fx:id="passwordField" promptText="Password" styleClass="login-field"/>
+
+                <Button text="Login" onAction="#handleLogin" styleClass="login-button"/>
+
+                <Hyperlink text="Don't have an account? Sign up" onAction="#switchToSignup"/>
+            </VBox>
+
+            <Label fx:id="errorLabel" style="-fx-text-fill: red;"/>
+        </VBox>
+    </center>
+
+</BorderPane>

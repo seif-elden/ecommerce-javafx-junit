@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.*?>
+
+<BorderPane xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.ecommerce.controllers.CartController" stylesheets="@../css/styles.css">
+    <top>
+        <ToolBar>
+            <Button text="Continue Shopping" onAction="#handleContinueShopping"/>
+            <Button text="My Profile" onAction="#handleProfile"/>
+        </ToolBar>
+    </top>
+
+    <center>
+        <VBox spacing="20" style="-fx-padding: 20;">
+            <TableView fx:id="cartTableView" style="-fx-pref-height: 400;">
+                <columns>
+                    <TableColumn text="Product" fx:id="productColumn"/>
+                    <TableColumn text="Price" fx:id="priceColumn"/>
+                    <TableColumn text="Quantity" fx:id="quantityColumn"/>
+                    <TableColumn text="Total" fx:id="totalColumn"/>
+                    <TableColumn text="Actions" fx:id="actionColumn"/>
+                </columns>
+            </TableView>
+
+            <HBox alignment="CENTER_RIGHT" spacing="20">
+                <Label text="Grand Total:" style="-fx-font-size: 16; -fx-font-weight: bold;"/>
+                <Label fx:id="grandTotalLabel" style="-fx-font-size: 16; -fx-font-weight: bold;"/>
+            </HBox>
+
+            <Button text="Checkout" onAction="#handleCheckout" styleClass="primary-button" style="-fx-font-size: 16;"/>
+        </VBox>
+    </center>
+
+</BorderPane>

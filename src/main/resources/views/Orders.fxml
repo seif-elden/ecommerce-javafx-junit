@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.ecommerce.controllers.OrdersController" stylesheets="@../css/styles.css">
+    <top>
+        <ToolBar>
+            <Button text="Back" onAction="#handleBack"/>
+            <Button text="Logout" onAction="#handleLogout"/>
+        </ToolBar>
+    </top>
+    <center>
+        <SplitPane orientation="VERTICAL">
+            <items>
+                <!-- Orders Table -->
+                <TableView fx:id="ordersTable">
+                    <columns>
+                        <TableColumn text="Order ID" fx:id="orderIdCol"/>
+                        <TableColumn text="User ID" fx:id="orderUserCol"/>
+                        <TableColumn text="Date" fx:id="orderDateCol"/>
+                        <TableColumn text="Total" fx:id="orderTotalCol"/>
+                    </columns>
+                </TableView>
+                <!-- Order Items Table -->
+                <TableView fx:id="orderItemsTable">
+                    <columns>
+                        <TableColumn text="Product" fx:id="itemProductCol"/>
+                        <TableColumn text="Quantity" fx:id="itemQuantityCol"/>
+                        <TableColumn text="Price" fx:id="itemPriceCol"/>
+                        <TableColumn text="Total" fx:id="itemTotalCol"/>
+                    </columns>
+                </TableView>
+            </items>
+        </SplitPane>
+    </center>
+</BorderPane>

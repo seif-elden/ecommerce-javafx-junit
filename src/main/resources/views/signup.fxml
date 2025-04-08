@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.*?>
+<?import javafx.scene.image.ImageView?>
+
+<BorderPane xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.ecommerce.controllers.SignupController" stylesheets="@../css/styles.css">
+    <center>
+        <ScrollPane fitToWidth="true">
+            <VBox alignment="CENTER" spacing="15" style="-fx-padding: 30;">
+                <Text text="Create Account" style="-fx-font-size: 24; -fx-font-weight: bold;"/>
+
+                <GridPane hgap="10" vgap="10">
+                    <Label text="Username:" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+                    <TextField fx:id="usernameField" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+
+                    <Label text="Password:" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+                    <PasswordField fx:id="passwordField" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+
+                    <Label text="Email:" GridPane.rowIndex="2" GridPane.columnIndex="0"/>
+                    <TextField fx:id="emailField" GridPane.rowIndex="2" GridPane.columnIndex="1"/>
+
+                    <Label text="Address:" GridPane.rowIndex="3" GridPane.columnIndex="0"/>
+                    <TextArea fx:id="addressField" GridPane.rowIndex="3" GridPane.columnIndex="1"/>
+                </GridPane>
+
+                <Button text="Upload Profile Picture" onAction="#handleUploadPicture"/>
+                <ImageView fx:id="profileImageView" fitWidth="100" fitHeight="100" preserveRatio="true"/>
+
+                <Button text="Sign Up" onAction="#handleSignup" styleClass="primary-button"/>
+
+                <Hyperlink text="Already have an account? Login" onAction="#switchToLogin"/>
+
+                <Label fx:id="errorLabel" style="-fx-text-fill: red;"/>
+            </VBox>
+        </ScrollPane>
+    </center>
+
+</BorderPane>
