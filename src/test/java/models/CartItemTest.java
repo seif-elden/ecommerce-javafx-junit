@@ -54,10 +54,16 @@ class CartItemTest {
 
     @Test
     void testGetTotalPrice() {
-        assertEquals(199.98, cartItem.getTotalPrice()); // 99.99 * 2
+        // For the first test with quantity 2
+        double expectedPrice1 = 99.99 * 2;
+        double actualPrice1 = cartItem.getTotalPrice();
+        assertEquals(expectedPrice1, actualPrice1, 0.001); // Using delta for floating-point comparison
 
+        // For the second test with quantity 3
         cartItem.setQuantity(3);
-        assertEquals(299.97, cartItem.getTotalPrice()); // 99.99 * 3
+        double expectedPrice2 = 99.99 * 3;
+        double actualPrice2 = cartItem.getTotalPrice();
+        assertEquals(expectedPrice2, actualPrice2, 0.001); // Using delta for floating-point comparison
     }
 
     @Test
