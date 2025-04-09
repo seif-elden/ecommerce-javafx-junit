@@ -8,15 +8,26 @@ public class Order {
     private final IntegerProperty userId = new SimpleIntegerProperty();
     private final ObjectProperty<LocalDateTime> orderDate = new SimpleObjectProperty<>();
     private final DoubleProperty total = new SimpleDoubleProperty();
+    private final ObjectProperty<OrderStatus> status = new SimpleObjectProperty<>();
 
-    // Constructors
-    public Order() {}
+    // No-argument constructor
+    public Order() {
+        // Default status
+        setStatus(OrderStatus.PENDING);
+    }
 
-    public Order(int id, int userId, LocalDateTime orderDate, double total) {
+    // Full constructor
+    public Order(int id, int userId, LocalDateTime orderDate, double total, OrderStatus status) {
         setId(id);
         setUserId(userId);
         setOrderDate(orderDate);
         setTotal(total);
+        setStatus(status);
+    }
+
+    // Constructor with userId and total; sets current date/time and default status (PENDING)
+    public Order(int userId, double total) {
+        this(0, userId, LocalDateTime.now(), total, OrderStatus.PENDING);
     }
 
     // Getters and Setters
@@ -36,8 +47,12 @@ public class Order {
     public void setTotal(double total) { this.total.set(total); }
     public DoubleProperty totalProperty() { return total; }
 
+    public OrderStatus getStatus() { return status.get(); }
+    public void setStatus(OrderStatus status) { this.status.set(status); }
+    public ObjectProperty<OrderStatus> statusProperty() { return status; }
+
     @Override
     public String toString() {
-        return "Order #" + getId() + " - $" + getTotal() + " on " + getOrderDate();
+        return "Order #" + getId() + " - $" + getTotal() + " on " + getOrderDate() + " (" + getStatus() + ")";
     }
 }

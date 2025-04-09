@@ -2,7 +2,9 @@ package DAO;
 
 import models.Order;
 import models.OrderItem;
+import models.OrderStatus;
 import models.Product;
+
 import java.sql.*;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -18,10 +20,14 @@ public class OrderDAO extends BaseDAO {
         try {
             connection.setAutoCommit(false);
 
-            String insertOrderSQL = "INSERT INTO Orders(user_id, total) VALUES (?, ?)";
+            // Updated SQL to include status field
+            String insertOrderSQL = "INSERT INTO Orders(user_id, total, status) VALUES (?, ?, ?)";
             try (PreparedStatement stmt = connection.prepareStatement(insertOrderSQL, Statement.RETURN_GENERATED_KEYS)) {
                 stmt.setInt(1, order.getUserId());
                 stmt.setDouble(2, order.getTotal());
+                // Save the order status as a String (e.g., "PENDING")
+                stmt.setString(3, order.getStatus().toString());
+
                 int affectedRows = stmt.executeUpdate();
                 if (affectedRows == 0) {
                     connection.rollback();
@@ -106,7 +112,7 @@ public class OrderDAO extends BaseDAO {
             stmt.setInt(1, orderId);
             try (ResultSet rs = stmt.executeQuery()) {
                 while (rs.next()) {
-                    // Reuse ProductDAO's mapping method to build the Product object.
+                    // Use productDAO's method to map the product fields from the ResultSet.
                     Product product = productDAO.mapResultSetToProduct(rs);
                     int quantity = rs.getInt("quantity");
                     double price = rs.getDouble("price");
@@ -120,12 +126,17 @@ public class OrderDAO extends BaseDAO {
         return items;
     }
 
+    // Map a result set row to an Order object, including status conversion.
     private Order mapResultSetToOrder(ResultSet rs) throws SQLException {
         int id = rs.getInt("id");
         int userId = rs.getInt("user_id");
         Timestamp ts = rs.getTimestamp("order_date");
         LocalDateTime orderDate = ts.toLocalDateTime();
         double total = rs.getDouble("total");
-        return new Order(id, userId, orderDate, total);
+        // Retrieve status from ResultSet and convert it to the OrderStatus enum.
+        String statusStr = rs.getString("status");
+        // Default to PENDING if status is null.
+        models.OrderStatus status = (statusStr != null) ? models.OrderStatus.valueOf(statusStr) : models.OrderStatus.PENDING;
+        return new Order(id, userId, orderDate, total, status);
     }
 }

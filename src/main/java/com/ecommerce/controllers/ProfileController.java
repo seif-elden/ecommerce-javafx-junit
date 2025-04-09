@@ -2,6 +2,7 @@ package com.ecommerce.controllers;
 
 
 import DAO.UserDAO;
+import db.SessionContext;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.scene.image.Image;
@@ -25,7 +26,7 @@ public class ProfileController {
     @FXML
     private void initialize() {
         // In a real application, currentUser should be fetched from the authenticated session.
-        currentUser = userDAO.findByUsername("exampleUser"); // Replace with actual logic.
+        currentUser = SessionContext.getCurrentUser(); // Replace with actual logic.
         loadProfile();
     }
 
@@ -82,11 +83,14 @@ public class ProfileController {
     private void handleDelete() {
         Alert confirm = new Alert(Alert.AlertType.CONFIRMATION, "Are you sure you want to delete your account?");
         if (confirm.showAndWait().orElse(ButtonType.CANCEL) == ButtonType.OK) {
-            if (userDAO.deleteUser(currentUser.getId())) {
+            // Attempt to delete the user.
+            boolean deleted = userDAO.deleteUser(currentUser.getId());
+            if (deleted) {
                 new Alert(Alert.AlertType.INFORMATION, "Account deleted.").showAndWait();
                 SceneNavigator.switchTo("/views/signup.fxml");
             } else {
-                new Alert(Alert.AlertType.ERROR, "Failed to delete account.").showAndWait();
+                // Inform the user that there are dependent orders
+                new Alert(Alert.AlertType.ERROR, "Account cannot be deleted.There are certain transactions associated with this account. If you wish to delete them, please contact customer service for assistance." ).showAndWait();
             }
         }
     }
