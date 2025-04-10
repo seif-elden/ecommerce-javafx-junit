@@ -20,12 +20,10 @@ public class OrderDAO extends BaseDAO {
         try {
             connection.setAutoCommit(false);
 
-            // Updated SQL to include status field
             String insertOrderSQL = "INSERT INTO Orders(user_id, total, status) VALUES (?, ?, ?)";
             try (PreparedStatement stmt = connection.prepareStatement(insertOrderSQL, Statement.RETURN_GENERATED_KEYS)) {
                 stmt.setInt(1, order.getUserId());
                 stmt.setDouble(2, order.getTotal());
-                // Save the order status as a String (e.g., "PENDING")
                 stmt.setString(3, order.getStatus().toString());
 
                 int affectedRows = stmt.executeUpdate();
@@ -105,14 +103,13 @@ public class OrderDAO extends BaseDAO {
     // Retrieve order items for a given order
     public List<OrderItem> getOrderItems(int orderId) {
         List<OrderItem> items = new ArrayList<>();
-        String sql = "SELECT oi.*, p.name, p.price AS productPrice, p.category_id, p.stock " +
+        String sql = "SELECT oi.*, p.id, p.name, p.price AS productPrice, p.category_id, p.stock " +
                 "FROM OrderItems oi JOIN Products p ON oi.product_id = p.id " +
                 "WHERE oi.order_id = ?";
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setInt(1, orderId);
             try (ResultSet rs = stmt.executeQuery()) {
                 while (rs.next()) {
-                    // Use productDAO's method to map the product fields from the ResultSet.
                     Product product = productDAO.mapResultSetToProduct(rs);
                     int quantity = rs.getInt("quantity");
                     double price = rs.getDouble("price");
@@ -133,10 +130,8 @@ public class OrderDAO extends BaseDAO {
         Timestamp ts = rs.getTimestamp("order_date");
         LocalDateTime orderDate = ts.toLocalDateTime();
         double total = rs.getDouble("total");
-        // Retrieve status from ResultSet and convert it to the OrderStatus enum.
         String statusStr = rs.getString("status");
-        // Default to PENDING if status is null.
-        models.OrderStatus status = (statusStr != null) ? models.OrderStatus.valueOf(statusStr) : models.OrderStatus.PENDING;
+        OrderStatus status = (statusStr != null) ? OrderStatus.valueOf(statusStr) : OrderStatus.PENDING;
         return new Order(id, userId, orderDate, total, status);
     }
 }
