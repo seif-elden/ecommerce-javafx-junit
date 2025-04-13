@@ -33,7 +33,7 @@ public class CartDAO extends BaseDAO {
             stmt.setInt(1, userId);
             stmt.setInt(2, productId);
             stmt.setInt(3, quantity);
-            return stmt.executeUpdate() > 0;
+            return stmt.executeUpdate() > 0 ;
         } catch (SQLException e) {
             e.printStackTrace();
             return false;
