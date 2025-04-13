@@ -33,6 +33,17 @@ class UserDAOTest {
                     role VARCHAR(20) NOT NULL
                 )
             """);
+            
+            // Create Orders table
+            stmt.execute("""
+                CREATE TABLE Orders (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    user_id INT NOT NULL,
+                    order_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    status VARCHAR(20) NOT NULL,
+                    FOREIGN KEY (user_id) REFERENCES Users(id)
+                )
+            """);
         }
     }
 
@@ -45,6 +56,7 @@ class UserDAOTest {
     @AfterEach
     void cleanup() throws SQLException {
         try (Statement stmt = connection.createStatement()) {
+            stmt.execute("DELETE FROM Orders"); // hena l error 
             stmt.execute("DELETE FROM Users");
         }
     }
@@ -112,6 +124,9 @@ class UserDAOTest {
 
         // Verify deletion
         assertNull(userDAO.findByUsername("testuser"));
+
+
+        //na2es lama t delete w fe order linked to it
     }
 
     @Test
@@ -129,5 +144,26 @@ class UserDAOTest {
 
         // Test non-existent user
         assertFalse(userDAO.validateCredentials("nonexistent", "password123"));
+    }
+
+    @Test
+    void testDeleteUserWithOrders() {
+        // Create a user first
+        User user = new User(0, "testuser", "password123", "test@example.com",
+                "123 Test St", "profile.jpg", UserRole.USER);
+        userDAO.createUser(user);
+
+        // Create an order for the user
+        try (Statement stmt = connection.createStatement()) {
+            stmt.execute("INSERT INTO Orders (user_id, status) VALUES (" + user.getId() + ", 'PENDING')");
+        } catch (SQLException e) {
+            fail("Failed to create test order: " + e.getMessage());
+        }
+
+        // Try to delete the user
+        assertFalse(userDAO.deleteUser(user.getId()), "User with orders should not be deletable");
+
+        // Verify user still exists
+        assertNotNull(userDAO.findByUsername("testuser"), "User should still exist after failed deletion");
     }
 } 
