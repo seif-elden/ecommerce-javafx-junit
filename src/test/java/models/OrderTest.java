@@ -2,6 +2,8 @@ package models;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import static models.OrderStatus.PENDING;
 import static org.junit.jupiter.api.Assertions.*;
 import java.time.LocalDateTime;
 
@@ -12,13 +14,13 @@ class OrderTest {
     @BeforeEach
     void setUp() {
         testDate = LocalDateTime.now();
-        order = new Order(1, 1, testDate, 99.99);
+        order = new Order(1, 99.99);
     }
 
     @Test
     void testOrderCreation() {
         assertNotNull(order);
-        assertEquals(1, order.getId());
+        assertEquals(0, order.getId());
         assertEquals(1, order.getUserId());
         assertEquals(testDate, order.getOrderDate());
         assertEquals(99.99, order.getTotal());
@@ -64,7 +66,7 @@ class OrderTest {
 
     @Test
     void testToString() {
-        String expected = "Order #1 - $99.99 on " + testDate;
+        String expected = "Order #0 - $99.99 on " + testDate + " (PENDING)";
         assertEquals(expected, order.toString());
     }
 } 

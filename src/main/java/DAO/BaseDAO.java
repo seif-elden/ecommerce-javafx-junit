@@ -1,6 +1,5 @@
 package DAO;
 
-
 import db.DatabaseConnection;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -12,6 +11,10 @@ public abstract class BaseDAO {
 
     public BaseDAO() {
         this.connection = DatabaseConnection.getConnection();
+    }
+
+    public void setConnection(Connection connection) {
+        this.connection = connection;
     }
 
     protected void closeResources(ResultSet rs, PreparedStatement stmt) {
