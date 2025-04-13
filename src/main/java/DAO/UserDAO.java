@@ -22,9 +22,7 @@ public class UserDAO extends BaseDAO {
         DELETE FROM Users WHERE id=?""";
 
     public boolean createUser(User user) {
-        try (PreparedStatement stmt = connection.prepareStatement(INSERT_USER,
-                Statement.RETURN_GENERATED_KEYS)) {
-
+        try (PreparedStatement stmt = connection.prepareStatement(INSERT_USER, Statement.RETURN_GENERATED_KEYS)) {
             stmt.setString(1, user.getUsername());
             stmt.setString(2, BCrypt.hashpw(user.getPassword(), BCrypt.gensalt()));
             stmt.setString(3, user.getEmail());
@@ -33,7 +31,6 @@ public class UserDAO extends BaseDAO {
             stmt.setString(6, user.getRole().toString());
 
             int affectedRows = stmt.executeUpdate();
-
             if (affectedRows == 0) return false;
 
             try (ResultSet rs = stmt.getGeneratedKeys()) {
@@ -51,7 +48,6 @@ public class UserDAO extends BaseDAO {
     public User findByUsername(String username) {
         try (PreparedStatement stmt = connection.prepareStatement(FIND_BY_USERNAME)) {
             stmt.setString(1, username);
-
             try (ResultSet rs = stmt.executeQuery()) {
                 if (rs.next()) {
                     return mapResultSetToUser(rs);
@@ -81,7 +77,6 @@ public class UserDAO extends BaseDAO {
             stmt.setString(2, user.getAddress());
             stmt.setString(3, user.getProfilePic());
             stmt.setInt(4, user.getId());
-
             return stmt.executeUpdate() > 0;
         } catch (SQLException e) {
             e.printStackTrace();
@@ -94,7 +89,12 @@ public class UserDAO extends BaseDAO {
             stmt.setInt(1, userId);
             return stmt.executeUpdate() > 0;
         } catch (SQLException e) {
-            e.printStackTrace();
+            // Check if the error message indicates a foreign key constraint failure
+            if (e.getMessage().toLowerCase().contains("foreign key") || e.getMessage().toLowerCase().contains("constraint fails")) {
+                System.err.println("User cannot be deleted because there are orders linked to this account.");
+            } else {
+                e.printStackTrace();
+            }
             return false;
         }
     }

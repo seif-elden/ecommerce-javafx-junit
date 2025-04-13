@@ -34,8 +34,15 @@
                 <Button text="Save Changes" onAction="#handleSave" styleClass="primary-button"/>
                 <Button text="Delete Account" onAction="#handleDelete" style="-fx-text-fill: white; -fx-background-color: #d9534f;"/>
             </HBox>
+
+            <!-- New section for Order History -->
+            <Label text="Order History:" style="-fx-font-size: 16; -fx-font-weight: bold;"/>
+            <ComboBox fx:id="ordersCombo" promptText="Select an order..."/>
+            <ListView fx:id="orderItemsList" prefHeight="120" />
+            <Label text="Order Status:" style="-fx-font-size: 14; -fx-font-weight: bold;" />
+            <TextField fx:id="orderStatusField" editable="false" GridPane.rowIndex="3" GridPane.columnIndex="1" />
+
+
         </VBox>
     </center>
-
-
 </BorderPane>

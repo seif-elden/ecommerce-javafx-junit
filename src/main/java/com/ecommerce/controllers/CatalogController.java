@@ -56,32 +56,40 @@ public class CatalogController implements Initializable {
             products = productDAO.findByCategory(category.getId());
         }
         for (Product product : products) {
-            Button productButton = new Button(product.getName() + "\n$" + product.getPrice() + "\navailable:" + product.getStock());
+            Button productButton = new Button();
             productButton.setPrefWidth(120);
-            productButton.setOnAction(e -> {
-                // Ask user if they want to add the product to cart.
-                TextInputDialog qtyDialog = new TextInputDialog("1");
-                qtyDialog.setTitle("Add To Cart");
-                qtyDialog.setHeaderText("Enter quantity for " + product.getName());
-                Optional<String> qtyResult = qtyDialog.showAndWait();
-                qtyResult.ifPresent(qtyStr -> {
-                    try {
-                        int qty = Integer.parseInt(qtyStr);
-                        if (qty > product.getStock() ){
+
+            if (product.getStock() > 0) {
+                productButton.setText(product.getName() + "\n$" + product.getPrice() + "\nAvailable: " + product.getStock());
+                productButton.setOnAction(e -> {
+                    // Ask user if they want to add the product to cart.
+                    TextInputDialog qtyDialog = new TextInputDialog("1");
+                    qtyDialog.setTitle("Add To Cart");
+                    qtyDialog.setHeaderText("Enter quantity for " + product.getName());
+                    Optional<String> qtyResult = qtyDialog.showAndWait();
+                    qtyResult.ifPresent(qtyStr -> {
+                        try {
+                            int qty = Integer.parseInt(qtyStr);
+                            if (qty > product.getStock()) {
+                                new Alert(Alert.AlertType.ERROR, "Invalid quantity.").showAndWait();
+                            } else if (cartDAO.addToCart(SessionContext.getCurrentUser().getId(), product.getId(), qty)) {
+                                new Alert(Alert.AlertType.INFORMATION, "Added to cart.").showAndWait();
+                            } else {
+                                new Alert(Alert.AlertType.ERROR, "Failed to add to cart.").showAndWait();
+                            }
+                        } catch (NumberFormatException ex) {
                             new Alert(Alert.AlertType.ERROR, "Invalid quantity.").showAndWait();
                         }
-                        else if (cartDAO.addToCart(SessionContext.getCurrentUser().getId(), product.getId(), qty)) {
-                            new Alert(Alert.AlertType.INFORMATION, "Added to cart.").showAndWait();
-                        } else {
-                            new Alert(Alert.AlertType.ERROR, "Failed to add to cart.").showAndWait();
-                        }
-                    } catch (NumberFormatException ex) {
-                        new Alert(Alert.AlertType.ERROR, "Invalid quantity.").showAndWait();
-                    }
+                    });
                 });
-            });
+            } else {
+                productButton.setText(product.getName() + "\nSOLD OUT");
+                productButton.setDisable(true);
+            }
+
             productTilePane.getChildren().add(productButton);
         }
+
     }
 
     @FXML
