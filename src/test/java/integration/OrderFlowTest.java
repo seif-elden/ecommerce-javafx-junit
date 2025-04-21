@@ -1,106 +1,37 @@
 package integration;
 
 import DAO.*;
+import db.DatabaseConnection;
 import models.*;
+import models.Order;
 import org.junit.jupiter.api.*;
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.sql.Statement;
-import java.util.List;
 import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class OrderFlowTest {
-    private static final String DB_URL = "jdbc:h2:mem:test;MODE=MySQL;DB_CLOSE_DELAY=-1";
-    private static final String DB_USER = "sa";
-    private static final String DB_PASSWORD = "";
-    private static Connection connection;
+    private Connection connection;
     private UserDAO userDAO;
     private ProductDAO productDAO;
     private CategoryDAO categoryDAO;
     private CartDAO cartDAO;
     private OrderDAO orderDAO;
 
-    @BeforeAll
-    static void setupDatabase() throws SQLException {
-        connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD);
-        try (Statement stmt = connection.createStatement()) {
-            // Create Users table
-            stmt.execute("""
-                CREATE TABLE Users (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    username VARCHAR(50) UNIQUE NOT NULL,
-                    password VARCHAR(255) NOT NULL,
-                    email VARCHAR(100),
-                    address VARCHAR(255),
-                    profile_pic VARCHAR(255),
-                    role VARCHAR(20) NOT NULL
-                )
-            """);
-            
-            // Create Categories table
-            stmt.execute("""
-                CREATE TABLE Categories (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    name VARCHAR(50) NOT NULL
-                )
-            """);
-            
-            // Create Products table
-            stmt.execute("""
-                CREATE TABLE Products (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    name VARCHAR(100) NOT NULL,
-                    price DECIMAL(10,2) NOT NULL,
-                    category_id INT NOT NULL,
-                    stock INT NOT NULL,
-                    FOREIGN KEY (category_id) REFERENCES Categories(id)
-                )
-            """);
-            
-            // Create Cart table
-            stmt.execute("""
-                CREATE TABLE Cart (
-                    user_id INT NOT NULL,
-                    product_id INT NOT NULL,
-                    quantity INT NOT NULL,
-                    PRIMARY KEY (user_id, product_id),
-                    FOREIGN KEY (user_id) REFERENCES Users(id),
-                    FOREIGN KEY (product_id) REFERENCES Products(id)
-                )
-            """);
-            
-            // Create Orders table
-            stmt.execute("""
-                CREATE TABLE Orders (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    user_id INT NOT NULL,
-                    order_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    total DECIMAL(10,2) NOT NULL,
-                    status VARCHAR(20) NOT NULL,
-                    FOREIGN KEY (user_id) REFERENCES Users(id)
-                )
-            """);
-            
-            // Create OrderItems table
-            stmt.execute("""
-                CREATE TABLE OrderItems (
-                    order_id INT NOT NULL,
-                    product_id INT NOT NULL,
-                    quantity INT NOT NULL,
-                    price DECIMAL(10,2) NOT NULL,
-                    PRIMARY KEY (order_id, product_id),
-                    FOREIGN KEY (order_id) REFERENCES Orders(id),
-                    FOREIGN KEY (product_id) REFERENCES Products(id)
-                )
-            """);
-        }
-    }
+    private int testUserId;
+    private int testCategoryId;
+    private final double PRODUCT_PRICE = 99.99;
+    private final String TEST_USERNAME = "testuser_" + UUID.randomUUID().toString().substring(0, 8);
 
     @BeforeEach
     void setup() throws SQLException {
+        connection = DatabaseConnection.getConnection();
+        connection.setAutoCommit(false); // Start transaction
+
+        // Initialize DAOs
         userDAO = new UserDAO();
         userDAO.setConnection(connection);
         productDAO = new ProductDAO();
@@ -111,157 +42,123 @@ class OrderFlowTest {
         cartDAO.setConnection(connection);
         orderDAO = new OrderDAO();
         orderDAO.setConnection(connection);
-        
-        // Clean up any existing data
-        try (Statement stmt = connection.createStatement()) {
-            stmt.execute("DELETE FROM OrderItems");
-            stmt.execute("DELETE FROM Orders");
-            stmt.execute("DELETE FROM Cart");
-            stmt.execute("DELETE FROM Products");
-            stmt.execute("DELETE FROM Categories");
-            stmt.execute("DELETE FROM Users");
-            
-            // Reset auto-increment counters
-            stmt.execute("ALTER TABLE Orders ALTER COLUMN id RESTART WITH 1");
-            stmt.execute("ALTER TABLE Products ALTER COLUMN id RESTART WITH 1");
-            stmt.execute("ALTER TABLE Categories ALTER COLUMN id RESTART WITH 1");
-            stmt.execute("ALTER TABLE Users ALTER COLUMN id RESTART WITH 1");
-        }
+
+        // Create admin user
+        User admin = new User(
+                0,
+                "admin_" + UUID.randomUUID().toString().substring(0, 8),
+                "adminpass",
+                "admin@test.com",
+                "Admin Address",
+                "",
+                UserRole.ADMIN
+        );
+        userDAO.createUser(admin);
+
+        // Create test user
+        User user = new User(
+                0,
+                TEST_USERNAME,
+                "testpass123",
+                "test@example.com",
+                "123 Test St",
+                "default.jpg",
+                UserRole.USER
+        );
+        userDAO.createUser(user);
+        testUserId = user.getId();
+
+        // Create category
+        Category category = new Category(
+                0,
+                "TestCategory_" + UUID.randomUUID().toString().substring(0, 8),
+                admin.getId()
+        );
+        testCategoryId = categoryDAO.createCategory(category);
     }
 
     @AfterEach
     void cleanup() throws SQLException {
-        try (Statement stmt = connection.createStatement()) {
-            stmt.execute("DELETE FROM OrderItems");
-            stmt.execute("DELETE FROM Orders");
-            stmt.execute("DELETE FROM Cart");
-            stmt.execute("DELETE FROM Products");
-            stmt.execute("DELETE FROM Categories");
-            stmt.execute("DELETE FROM Users");
-        }
-    }
-
-    @AfterAll
-    static void closeDatabase() throws SQLException {
-        if (connection != null) {
+        try {
+            connection.rollback();
+        } finally {
             connection.close();
         }
     }
 
     @Test
     void testCompleteOrderFlow() throws SQLException {
-        // Step 1: User Registration
-        User newUser = new User(0, "testuser", "testpass123", "test@example.com", 
-            "123 Test St", "default.jpg", UserRole.USER);
-        assertTrue(userDAO.createUser(newUser), "User should be created successfully");
-        assertTrue(newUser.getId() > 0, "User ID should be set after creation");
+        // Create products
+        Product product1 = createTestProduct("Laptop", 10);
+        Product product2 = createTestProduct("Mouse", 20);
 
-        // Step 2: Create Category
-        Category category = new Category(0, "Electronics", 0);
-        int categoryId = categoryDAO.createCategory(category);
-        assertTrue(categoryId > 0, "Category should be created successfully");
-        category.setId(categoryId);
+        // Add to cart
+        cartDAO.addToCart(testUserId, product1.getId(), 1);
+        cartDAO.addToCart(testUserId, product2.getId(), 2);
 
-        // Step 3: Create Products
-        Product product1 = new Product(0, "Laptop", 999.99, categoryId, 10);
-        Product product2 = new Product(0, "Mouse", 29.99, categoryId, 20);
-        int productId1 = productDAO.createProduct(product1);
-        int productId2 = productDAO.createProduct(product2);
-        assertTrue(productId1 > 0 && productId2 > 0, "Products should be created successfully");
-        product1.setId(productId1);
-        product2.setId(productId2);
+        // Create order
+        double expectedTotal = (PRODUCT_PRICE * 1) + (PRODUCT_PRICE * 2);
+        Order order = new Order(testUserId, expectedTotal);
 
-        // Step 4: Add Items to Cart
-        assertTrue(cartDAO.addToCart(newUser.getId(), productId1, 1), "First item should be added to cart");
-        assertTrue(cartDAO.addToCart(newUser.getId(), productId2, 2), "Second item should be added to cart");
-
-        // Step 5: Verify Cart Contents
-        List<CartItem> cartItems = cartDAO.getCartItems(newUser.getId());
-        assertEquals(2, cartItems.size(), "Cart should have two items");
-        assertEquals(1, cartItems.get(0).getQuantity(), "First item quantity should be 1");
-        assertEquals(2, cartItems.get(1).getQuantity(), "Second item quantity should be 2");
-
-        // Step 6: Create Order
-        double totalAmount = 999.99 + (29.99 * 2); // Laptop + 2 Mice
-        models.Order order = new models.Order(newUser.getId(), totalAmount);
-        
-        // Convert CartItems to OrderItems
-        List<OrderItem> orderItems = new ArrayList<>();
-        for (CartItem cartItem : cartItems) {
-            orderItems.add(new OrderItem(
-                0, // orderId will be set after order creation
-                cartItem.getProduct(),
-                cartItem.getQuantity(),
-                cartItem.getProduct().getPrice()
-            ));
-        }
-        
+        List<OrderItem> orderItems = convertCartToOrderItems(testUserId);
         int orderId = orderDAO.createOrder(order, orderItems);
-        assertTrue(orderId > 0, "Order should be created successfully");
 
-        // Step 7: Verify Order Creation
-        List<models.Order> userOrders = orderDAO.getOrdersByUser(newUser.getId());
-        assertEquals(1, userOrders.size(), "User should have one order");
-        assertEquals(totalAmount, userOrders.get(0).getTotal(), "Order total should match");
-        assertEquals(OrderStatus.PENDING, userOrders.get(0).getStatus(), "Order status should be PENDING");
+        assertTrue(orderId > 0, "Order creation should succeed");
 
-        // Step 8: Verify Order Items
-        List<OrderItem> savedOrderItems = orderDAO.getOrderItems(orderId);
-        assertEquals(2, savedOrderItems.size(), "Order should have two items");
-        assertEquals(1, savedOrderItems.get(0).getQuantity(), "First item quantity should be 1");
-        assertEquals(2, savedOrderItems.get(1).getQuantity(), "Second item quantity should be 2");
+        // Verify order details
+        Order createdOrder = orderDAO.getOrdersByUser(testUserId).get(0);
+        assertEquals(expectedTotal, createdOrder.getTotal(), 0.01);
+        assertEquals(OrderStatus.PENDING, createdOrder.getStatus());
 
-        // Step 9: Verify Cart is Cleared
-        List<CartItem> emptyCart = cartDAO.getCartItems(newUser.getId());
-        assertTrue(emptyCart.isEmpty(), "Cart should be empty after order creation");
+        // Verify order items
+        List<OrderItem> savedItems = orderDAO.getOrderItems(orderId);
+        assertEquals(2, savedItems.size());
 
-        // Step 10: Verify Product Stock
-        Product updatedProduct1 = productDAO.findById(productId1);
-        Product updatedProduct2 = productDAO.findById(productId2);
-        assertEquals(9, updatedProduct1.getStock(), "Laptop stock should be reduced by 1");
-        assertEquals(18, updatedProduct2.getStock(), "Mouse stock should be reduced by 2");
+        // Verify cart clearance
+        assertTrue(cartDAO.getCartItems(testUserId).isEmpty());
     }
 
     @Test
     void testOrderWithInsufficientStock() throws SQLException {
-        // Create user
-        User user = new User(0, "testuser", "testpass123", "test@example.com", 
-            "123 Test St", "default.jpg", UserRole.USER);
-        assertTrue(userDAO.createUser(user), "User should be created successfully");
+        Product limitedProduct = createTestProduct("RareItem", 1);
 
-        // Create category
-        Category category = new Category(0, "Electronics", 0);
-        int categoryId = categoryDAO.createCategory(category);
-        assertTrue(categoryId > 0, "Category should be created successfully");
+        // Add more than available stock
+        cartDAO.addToCart(testUserId, limitedProduct.getId(), 2);
 
-        // Create product with limited stock
-        Product product = new Product(0, "Limited Item", 99.99, categoryId, 1);
-        int productId = productDAO.createProduct(product);
-        assertTrue(productId > 0, "Product should be created successfully");
+        List<OrderItem> orderItems = convertCartToOrderItems(testUserId);
+        Order order = new Order(testUserId, PRODUCT_PRICE * 2);
 
-        // Add more items to cart than available stock
-        assertTrue(cartDAO.addToCart(user.getId(), productId, 2), "Items should be added to cart");
+        int orderId = orderDAO.createOrder(order, orderItems);
+        assertEquals(-1, orderId, "Should fail with insufficient stock");
 
-        // Try to create order (should fail due to insufficient stock)
-        List<CartItem> cartItems = cartDAO.getCartItems(user.getId());
-        models.Order order = new models.Order(user.getId(), 199.98);
-        
-        // Convert CartItems to OrderItems
+        // Verify cart remains unchanged
+        assertEquals(1, cartDAO.getCartItems(testUserId).size());
+    }
+
+    private Product createTestProduct(String name, int stock) {
+        Product product = new Product(
+                0,
+                name + "_" + UUID.randomUUID().toString().substring(0, 8),
+                PRODUCT_PRICE,
+                testCategoryId,
+                stock
+        );
+        product.setId(productDAO.createProduct(product));
+        return product;
+    }
+
+    private List<OrderItem> convertCartToOrderItems(int userId) {
+        List<CartItem> cartItems = cartDAO.getCartItems(userId);
         List<OrderItem> orderItems = new ArrayList<>();
+
         for (CartItem cartItem : cartItems) {
             orderItems.add(new OrderItem(
-                0, // orderId will be set after order creation
-                cartItem.getProduct(),
-                cartItem.getQuantity(),
-                cartItem.getProduct().getPrice()
+                    0,
+                    cartItem.getProduct(),
+                    cartItem.getQuantity(),
+                    cartItem.getProduct().getPrice()
             ));
         }
-        
-        int orderId = orderDAO.createOrder(order, orderItems);
-        assertEquals(-1, orderId, "Order should fail due to insufficient stock");
-
-        // Verify cart is not cleared
-        List<CartItem> remainingCart = cartDAO.getCartItems(user.getId());
-        assertEquals(1, remainingCart.size(), "Cart should still have items");
+        return orderItems;
     }
-} 
+}

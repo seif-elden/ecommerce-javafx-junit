@@ -29,8 +29,13 @@ public class UserDAO extends BaseDAO {
             stmt.setString(4, user.getAddress());
             stmt.setString(5, user.getProfilePic());
             stmt.setString(6, user.getRole().toString());
-
-            int affectedRows = stmt.executeUpdate();
+            int affectedRows;
+            try {
+                affectedRows = stmt.executeUpdate();
+            }catch (SQLException e){
+                affectedRows = 0;
+                System.out.println("ERROR CREATING USER");
+            }
             if (affectedRows == 0) return false;
 
             try (ResultSet rs = stmt.getGeneratedKeys()) {

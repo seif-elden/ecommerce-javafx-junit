@@ -17,8 +17,12 @@ public class OrderDAO extends BaseDAO {
     // Create an order and save its items in a transaction
     public int createOrder(Order order, List<OrderItem> orderItems) {
         int orderId = -1;
+        boolean originalAutoCommit = false;
         try {
+            // Preserve original auto-commit state
+            originalAutoCommit = connection.getAutoCommit();
             connection.setAutoCommit(false);
+
 
             String insertOrderSQL = "INSERT INTO Orders(user_id, total, status) VALUES (?, ?, ?)";
             try (PreparedStatement stmt = connection.prepareStatement(insertOrderSQL, Statement.RETURN_GENERATED_KEYS)) {
@@ -61,10 +65,23 @@ public class OrderDAO extends BaseDAO {
             return orderId;
         } catch (SQLException e) {
             try { connection.rollback(); } catch (SQLException ex) { ex.printStackTrace(); }
-            e.printStackTrace();
+            //e.printStackTrace();
+            System.out.println("ERROR ADDING TO ORDER");
             return -1;
         } finally {
-            try { connection.setAutoCommit(true); } catch (SQLException ex) { ex.printStackTrace(); }
+            try { connection.setAutoCommit(originalAutoCommit); } catch (SQLException ex) { ex.printStackTrace(); }
+        }
+    }
+
+    // Update order status in database
+    public void updateOrderStatus(int orderId, OrderStatus status) {
+        String sql = "UPDATE Orders SET status = ? WHERE id = ?";
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setString(1, status.toString());
+            stmt.setInt(2, orderId);
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
         }
     }
 
@@ -123,7 +140,7 @@ public class OrderDAO extends BaseDAO {
         return items;
     }
 
-    // Map a result set row to an Order object, including status conversion.
+    // Map a result set row to an Order object, including status conversion
     private Order mapResultSetToOrder(ResultSet rs) throws SQLException {
         int id = rs.getInt("id");
         int userId = rs.getInt("user_id");

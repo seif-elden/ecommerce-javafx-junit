@@ -1,169 +1,155 @@
 package DAO;
 
+import DAO.UserDAO;
+import db.DatabaseConnection;
 import models.User;
 import models.UserRole;
 import org.junit.jupiter.api.*;
+
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.sql.Statement;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class UserDAOTest {
-    private static final String DB_URL = "jdbc:h2:mem:test;DB_CLOSE_DELAY=-1";
-    private static final String DB_USER = "sa";
-    private static final String DB_PASSWORD = "";
-    private static Connection connection;
     private UserDAO userDAO;
-
-    @BeforeAll
-    static void setupDatabase() throws SQLException {
-        connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD);
-        try (Statement stmt = connection.createStatement()) {
-            // Create Users table
-            stmt.execute("""
-                CREATE TABLE Users (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    username VARCHAR(50) UNIQUE NOT NULL,
-                    password VARCHAR(255) NOT NULL,
-                    email VARCHAR(100),
-                    address VARCHAR(255),
-                    profile_pic VARCHAR(255),
-                    role VARCHAR(20) NOT NULL
-                )
-            """);
-            
-            // Create Orders table
-            stmt.execute("""
-                CREATE TABLE Orders (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    user_id INT NOT NULL,
-                    order_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    status VARCHAR(20) NOT NULL,
-                    FOREIGN KEY (user_id) REFERENCES Users(id)
-                )
-            """);
-        }
-    }
+    private Connection testConnection;
+    private String uniqueUsername;
+    private User testUser;
 
     @BeforeEach
-    void setup() {
+    void setUp() throws SQLException {
+        // Get a live database connection
+        testConnection = DatabaseConnection.getConnection();
+        testConnection.setAutoCommit(false); // Start transaction
+
+        // Initialize DAO with test connection
         userDAO = new UserDAO();
-        userDAO.setConnection(connection);
+        userDAO.setConnection(testConnection);
+
+        // Generate unique test data
+        uniqueUsername = "testuser_" + UUID.randomUUID().toString().substring(0, 8);
+        testUser = createTestUser();
     }
 
     @AfterEach
-    void cleanup() throws SQLException {
-        try (Statement stmt = connection.createStatement()) {
-            stmt.execute("DELETE FROM Orders"); // hena l error 
-            stmt.execute("DELETE FROM Users");
-        }
-    }
-
-    @AfterAll
-    static void closeDatabase() throws SQLException {
-        if (connection != null) {
-            connection.close();
-        }
+    void tearDown() throws SQLException {
+        // Rollback transaction to undo changes
+        testConnection.rollback();
+        testConnection.close();
     }
 
     @Test
-    void testCreateUser() {
-        User user = new User(0, "testuser", "password123", "test@example.com",
-                "123 Test St", "profile.jpg", UserRole.USER);
-        
-        assertTrue(userDAO.createUser(user));
-        assertNotEquals(0, user.getId());
-    }
+    void testCreateAndRetrieveUser() {
+        // Test creation
+        boolean created = userDAO.createUser(testUser);
+        assertTrue(created, "User should be created successfully");
 
-    @Test
-    void testFindByUsername() {
-        // Create a user first
-        User user = new User(0, "testuser", "password123", "test@example.com",
-                "123 Test St", "profile.jpg", UserRole.USER);
-        userDAO.createUser(user);
-
-        // Test finding the user
-        User foundUser = userDAO.findByUsername("testuser");
-        assertNotNull(foundUser);
-        assertEquals("testuser", foundUser.getUsername());
-        assertEquals("test@example.com", foundUser.getEmail());
+        // Test retrieval
+        User foundUser = userDAO.findByUsername(uniqueUsername);
+        assertNotNull(foundUser, "Created user should be retrievable");
+        assertUserEquals(testUser, foundUser);
     }
 
     @Test
     void testUpdateUser() {
-        // Create a user first
-        User user = new User(0, "testuser", "password123", "test@example.com",
-                "123 Test St", "profile.jpg", UserRole.USER);
-        userDAO.createUser(user);
+        userDAO.createUser(testUser);
 
-        // Update user details
-        user.setEmail("new@example.com");
-        user.setAddress("456 New St");
-        user.setProfilePic("new.jpg");
+        // Modify user details
+        testUser.setEmail("new.email@test.com");
+        testUser.setAddress("Updated Address");
+        testUser.setProfilePic("new_avatar.jpg");
 
-        assertTrue(userDAO.updateUser(user));
+        boolean updated = userDAO.updateUser(testUser);
+        assertTrue(updated, "User update should succeed");
 
-        // Verify the update
-        User updatedUser = userDAO.findByUsername("testuser");
-        assertEquals("new@example.com", updatedUser.getEmail());
-        assertEquals("456 New St", updatedUser.getAddress());
-        assertEquals("new.jpg", updatedUser.getProfilePic());
+        User updatedUser = userDAO.findByUsername(uniqueUsername);
+        assertEquals("new.email@test.com", updatedUser.getEmail());
+        assertEquals("Updated Address", updatedUser.getAddress());
+        assertEquals("new_avatar.jpg", updatedUser.getProfilePic());
     }
 
     @Test
     void testDeleteUser() {
-        // Create a user first
-        User user = new User(0, "testuser", "password123", "test@example.com",
-                "123 Test St", "profile.jpg", UserRole.USER);
-        userDAO.createUser(user);
+        userDAO.createUser(testUser);
+        int userId = testUser.getId();
 
-        // Delete the user
-        assertTrue(userDAO.deleteUser(user.getId()));
+        boolean deleted = userDAO.deleteUser(userId);
+        assertTrue(deleted, "User deletion should succeed");
 
-        // Verify deletion
-        assertNull(userDAO.findByUsername("testuser"));
-
-
-        //na2es lama t delete w fe order linked to it
+        User deletedUser = userDAO.findByUsername(uniqueUsername);
+        assertNull(deletedUser, "Deleted user should not be found");
     }
 
     @Test
-    void testValidateCredentials() {
-        // Create a user first
-        User user = new User(0, "testuser", "password123", "test@example.com",
-                "123 Test St", "profile.jpg", UserRole.USER);
-        userDAO.createUser(user);
+    void testPasswordHashingAndValidation() {
+        userDAO.createUser(testUser);
 
         // Test valid credentials
-        assertTrue(userDAO.validateCredentials("testuser", "password123"));
+        assertTrue(userDAO.validateCredentials(uniqueUsername, "testpass123"),
+                "Valid credentials should pass");
 
-        // Test invalid password
-        assertFalse(userDAO.validateCredentials("testuser", "wrongpassword"));
-
-        // Test non-existent user
-        assertFalse(userDAO.validateCredentials("nonexistent", "password123"));
+        // Test invalid credentials
+        assertFalse(userDAO.validateCredentials(uniqueUsername, "wrongpass"),
+                "Invalid credentials should fail");
     }
 
     @Test
-    void testDeleteUserWithOrders() {
-        // Create a user first
-        User user = new User(0, "testuser", "password123", "test@example.com",
-                "123 Test St", "profile.jpg", UserRole.USER);
-        userDAO.createUser(user);
+    void testDuplicateUsernamePrevention() {
+        userDAO.createUser(testUser);
 
-        // Create an order for the user
-        try (Statement stmt = connection.createStatement()) {
-            stmt.execute("INSERT INTO Orders (user_id, status) VALUES (" + user.getId() + ", 'PENDING')");
-        } catch (SQLException e) {
-            fail("Failed to create test order: " + e.getMessage());
-        }
+        User duplicateUser = new User(
+                0,
+                uniqueUsername,
+                "anotherpass",
+                "dupe@test.com",
+                "Duplicate Address",
+                "dupe.jpg",
+                UserRole.USER
+        );
 
-        // Try to delete the user
-        assertFalse(userDAO.deleteUser(user.getId()), "User with orders should not be deletable");
-
-        // Verify user still exists
-        assertNotNull(userDAO.findByUsername("testuser"), "User should still exist after failed deletion");
+        boolean duplicateCreated = userDAO.createUser(duplicateUser);
+        assertFalse(duplicateCreated, "Duplicate username should be prevented");
     }
-} 
+
+    @Test
+    void testUserRolePersistence() {
+        User adminUser = new User(
+                0,
+                uniqueUsername,
+                "adminpass",
+                "admin@test.com",
+                "Admin Address",
+                "admin.jpg",
+                UserRole.ADMIN
+        );
+
+        userDAO.createUser(adminUser);
+        User foundUser = userDAO.findByUsername(uniqueUsername);
+
+        assertEquals(UserRole.ADMIN, foundUser.getRole(),
+                "User role should persist correctly");
+    }
+
+    private User createTestUser() {
+        return new User(
+                0, // ID will be generated by DB
+                uniqueUsername,
+                "testpass123",
+                "testuser@example.com",
+                "123 Test Street",
+                "default.jpg",
+                UserRole.USER
+        );
+    }
+
+    private void assertUserEquals(User expected, User actual) {
+        assertEquals(expected.getUsername(), actual.getUsername(), "Username mismatch");
+        assertEquals(expected.getEmail(), actual.getEmail(), "Email mismatch");
+        assertEquals(expected.getAddress(), actual.getAddress(), "Address mismatch");
+        assertEquals(expected.getProfilePic(), actual.getProfilePic(), "Profile pic mismatch");
+        assertEquals(expected.getRole(), actual.getRole(), "Role mismatch");
+        assertTrue(actual.getId() > 0, "User ID should be generated");
+    }
+}

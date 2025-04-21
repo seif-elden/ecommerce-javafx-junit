@@ -21,6 +21,9 @@
                         <TableColumn text="User ID" fx:id="orderUserCol"/>
                         <TableColumn text="Date" fx:id="orderDateCol"/>
                         <TableColumn text="Total" fx:id="orderTotalCol"/>
+                        <!-- Add these two new columns -->
+                        <TableColumn text="Status" fx:id="orderStatusCol"/>
+                        <TableColumn text="Actions" fx:id="statusActionCol"/>
                     </columns>
                 </TableView>
                 <!-- Order Items Table -->

@@ -42,7 +42,7 @@ public class ProductDAO extends BaseDAO {
                 }
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            System.out.println("ERROR CREATING PRODUCT");
         }
         return -1;
     }

@@ -35,7 +35,7 @@ public class CartDAO extends BaseDAO {
             stmt.setInt(3, quantity);
             return stmt.executeUpdate() > 0 ;
         } catch (SQLException e) {
-            e.printStackTrace();
+            System.out.println("ERROR ADDING TO CART");
             return false;
         }
     }

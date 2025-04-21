@@ -1,231 +1,202 @@
 package DAO;
 
+import DAO.*;
+import db.DatabaseConnection;
+import models.*;
 import models.Order;
-import models.OrderItem;
-import models.OrderStatus;
-import models.Product;
 import org.junit.jupiter.api.*;
+
+
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.sql.Statement;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class OrderDAOTest {
-    private static final String DB_URL = "jdbc:h2:mem:test;DB_CLOSE_DELAY=-1";
-    private static final String DB_USER = "sa";
-    private static final String DB_PASSWORD = "";
-    private static Connection connection;
     private OrderDAO orderDAO;
+    private UserDAO userDAO;
     private ProductDAO productDAO;
+    private CategoryDAO categoryDAO;
+    private Connection testConnection;
 
-    @BeforeAll
-    static void setupDatabase() throws SQLException {
-        connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD);
-        try (Statement stmt = connection.createStatement()) {
-            // Create Users table first
-            stmt.execute("""
-                CREATE TABLE Users (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    username VARCHAR(50) UNIQUE NOT NULL,
-                    password VARCHAR(255) NOT NULL,
-                    email VARCHAR(100),
-                    address VARCHAR(255),
-                    profile_pic VARCHAR(255),
-                    role VARCHAR(20) NOT NULL
-                )
-            """);
-            
-            // Create Categories table
-            stmt.execute("""
-                CREATE TABLE Categories (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    name VARCHAR(50) NOT NULL
-                )
-            """);
-            
-            // Create Products table
-            stmt.execute("""
-                CREATE TABLE Products (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    name VARCHAR(100) NOT NULL,
-                    price DECIMAL(10,2) NOT NULL,
-                    category_id INT NOT NULL,
-                    stock INT NOT NULL,
-                    FOREIGN KEY (category_id) REFERENCES Categories(id)
-                )
-            """);
-            
-            // Create Orders table
-            stmt.execute("""
-                CREATE TABLE Orders (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    user_id INT NOT NULL,
-                    order_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    status VARCHAR(20) NOT NULL,
-                    total DECIMAL(10,2) NOT NULL
-                )
-            """);
-            
-            // Create OrderItems table
-            stmt.execute("""
-                CREATE TABLE OrderItems (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    order_id INT NOT NULL,
-                    product_id INT NOT NULL,
-                    quantity INT NOT NULL,
-                    price DECIMAL(10,2) NOT NULL,
-                    FOREIGN KEY (order_id) REFERENCES Orders(id),
-                    FOREIGN KEY (product_id) REFERENCES Products(id)
-                )
-            """);
-            
-            // Insert a test user
-            stmt.execute("INSERT INTO Users (username, password, role) VALUES ('testuser', 'password', 'USER')");
-            // Insert a test category
-            stmt.execute("INSERT INTO Categories (name) VALUES ('Test Category')");
-        }
-    }
+    private int testUserId;
+    private int testProductId;
+    private int testCategoryId;
+    private final double PRODUCT_PRICE = 19.99;
 
     @BeforeEach
-    void setup() throws SQLException {
+    void setUp() throws SQLException {
+        testConnection = DatabaseConnection.getConnection();
+        testConnection.setAutoCommit(false);
+
+        // Initialize DAOs
         orderDAO = new OrderDAO();
-        orderDAO.setConnection(connection);
+        orderDAO.setConnection(testConnection);
+
+        userDAO = new UserDAO();
+        userDAO.setConnection(testConnection);
+
         productDAO = new ProductDAO();
-        productDAO.setConnection(connection);
-        
-        // Clean up any existing data
-        try (Statement stmt = connection.createStatement()) {
-            stmt.execute("DELETE FROM OrderItems");
-            stmt.execute("DELETE FROM Orders");
-            stmt.execute("DELETE FROM Products");
-            stmt.execute("DELETE FROM Categories");
-            
-            // Reset auto-increment counters
-            stmt.execute("ALTER TABLE OrderItems ALTER COLUMN id RESTART WITH 1");
-            stmt.execute("ALTER TABLE Orders ALTER COLUMN id RESTART WITH 1");
-            stmt.execute("ALTER TABLE Products ALTER COLUMN id RESTART WITH 1");
-            stmt.execute("ALTER TABLE Categories ALTER COLUMN id RESTART WITH 1");
-            
-            // Insert a test category
-            stmt.execute("INSERT INTO Categories (name) VALUES ('Test Category')");
-        }
+        productDAO.setConnection(testConnection);
+
+        categoryDAO = new CategoryDAO();
+        categoryDAO.setConnection(testConnection);
+
+        // Create test user
+        User testUser = new User(
+                0,
+                "testuser_" + UUID.randomUUID().toString().substring(0, 8),
+                "password",
+                "test@example.com",
+                "Test Address",
+                "",
+                UserRole.USER
+        );
+        userDAO.createUser(testUser);
+        testUserId = testUser.getId();
+
+        // Create test category
+        Category testCategory = new Category(
+                0,
+                "TestCategory_" + UUID.randomUUID().toString().substring(0, 8),
+                1 // Assuming admin ID 1 exists
+        );
+        testCategoryId = categoryDAO.createCategory(testCategory);
+
+        // Create test product
+        Product testProduct = new Product(
+                0,
+                "TestProduct_" + UUID.randomUUID().toString().substring(0, 8),
+                PRODUCT_PRICE,
+                testCategoryId,
+                10
+        );
+        testProductId = productDAO.createProduct(testProduct);
     }
 
     @AfterEach
-    void cleanup() throws SQLException {
-        try (Statement stmt = connection.createStatement()) {
-            stmt.execute("DELETE FROM OrderItems");
-            stmt.execute("DELETE FROM Orders");
-            stmt.execute("DELETE FROM Products");
-            stmt.execute("DELETE FROM Categories");
-        }
-    }
-
-    @AfterAll
-    static void closeDatabase() throws SQLException {
-        if (connection != null) {
-            connection.close();
-        }
+    void tearDown() throws SQLException {
+        testConnection.rollback();
+        testConnection.close();
     }
 
     @Test
-    void testCreateOrder() {
-        // Create a product first
-        Product product = new Product(0, "Test Product", 99.99, 1, 10);
-        int productId = productDAO.createProduct(product);
-        product.setId(productId);
+    void testCreateOrderAndRetrieve() {
+        // Create order with items
+        Order order = new Order(testUserId, PRODUCT_PRICE * 2);
+        List<OrderItem> items = new ArrayList<>();
+        items.add(new OrderItem(0, productDAO.findById(testProductId), 2, PRODUCT_PRICE));
 
-        // Create order and order items
-        Order order = new Order(1, 199.98);
-        List<OrderItem> orderItems = new ArrayList<>();
-        orderItems.add(new OrderItem(0, product, 2, 99.99));
+        int orderId = orderDAO.createOrder(order, items);
+        assertTrue(orderId > 0, "Order should be created with valid ID");
 
-        // Create order
-        int orderId = orderDAO.createOrder(order, orderItems);
-        assertTrue(orderId > 0, "Order should be created successfully");
+        // Verify order details
+        Order createdOrder = orderDAO.getOrdersByUser(testUserId).get(0);
+        assertEquals(testUserId, createdOrder.getUserId());
+        assertEquals(PRODUCT_PRICE * 2, createdOrder.getTotal());
+        assertEquals(OrderStatus.PENDING, createdOrder.getStatus());
 
-        // Verify order items were created
-        List<OrderItem> createdItems = orderDAO.getOrderItems(orderId);
-        assertNotNull(createdItems, "Order items should exist");
-        assertEquals(1, createdItems.size(), "Should have one order item");
-        assertEquals(productId, createdItems.get(0).getProduct().getId(), "Product ID should match");
-        assertEquals(2, createdItems.get(0).getQuantity(), "Quantity should match");
-        assertEquals(99.99, createdItems.get(0).getPrice(), "Price should match");
+        // Verify order items
+        List<OrderItem> orderItems = orderDAO.getOrderItems(orderId);
+        assertEquals(1, orderItems.size());
+        assertEquals(testProductId, orderItems.get(0).getProduct().getId());
+        assertEquals(2, orderItems.get(0).getQuantity());
+    }
+
+    @Test
+    void testUpdateOrderStatus() {
+        Order order = new Order(testUserId, PRODUCT_PRICE);
+        int orderId = orderDAO.createOrder(order, new ArrayList<>());
+
+        orderDAO.updateOrderStatus(orderId, OrderStatus.DELIVERED);
+
+        Order updatedOrder = orderDAO.getAllOrders().stream()
+                .filter(o -> o.getId() == orderId)
+                .findFirst()
+                .orElse(null);
+
+        assertEquals(OrderStatus.DELIVERED, updatedOrder.getStatus());
     }
 
     @Test
     void testGetOrdersByUser() {
-        // Create a product first
-        Product product = new Product(0, "Test Product", 99.99, 1, 10);
-        int productId = productDAO.createProduct(product);
-        product.setId(productId);
+        // Create 2 orders for test user
+        orderDAO.createOrder(new Order(testUserId, PRODUCT_PRICE), new ArrayList<>());
+        orderDAO.createOrder(new Order(testUserId, PRODUCT_PRICE * 2), new ArrayList<>());
 
-        // Create order and order items
-        Order order = new Order(1, 199.98);
-        List<OrderItem> orderItems = new ArrayList<>();
-        orderItems.add(new OrderItem(0, product, 2, 99.99));
+        // Create another user's order
+        User otherUser = new User(
+                0,
+                "otheruser_" + UUID.randomUUID().toString().substring(0, 8),
+                "password",
+                "other@example.com",
+                "Other Address",
+                "",
+                UserRole.USER
+        );
+        userDAO.createUser(otherUser);
+        orderDAO.createOrder(new Order(otherUser.getId(), PRODUCT_PRICE), new ArrayList<>());
 
-        // Create order
-        orderDAO.createOrder(order, orderItems);
-
-        // Get orders by user
-        List<Order> orders = orderDAO.getOrdersByUser(1);
-        assertNotNull(orders, "Orders list should not be null");
-        assertEquals(1, orders.size(), "Should have one order");
-        assertEquals(1, orders.get(0).getUserId(), "User ID should match");
-        assertEquals(OrderStatus.PENDING, orders.get(0).getStatus(), "Status should be PENDING");
-        assertEquals(199.98, orders.get(0).getTotal(), "Total amount should match");
+        List<Order> userOrders = orderDAO.getOrdersByUser(testUserId);
+        assertEquals(2, userOrders.size(), "Should retrieve only orders for specified user");
     }
 
     @Test
     void testGetAllOrders() {
-        // Create a product first
-        Product product = new Product(0, "Test Product", 99.99, 1, 10);
-        int productId = productDAO.createProduct(product);
-        product.setId(productId);
+        int initialCount = orderDAO.getAllOrders().size();
 
-        // Create order and order items
-        Order order = new Order(1, 199.98);
-        List<OrderItem> orderItems = new ArrayList<>();
-        orderItems.add(new OrderItem(0, product, 2, 99.99));
+        orderDAO.createOrder(new Order(testUserId, PRODUCT_PRICE), new ArrayList<>());
+        orderDAO.createOrder(new Order(testUserId, PRODUCT_PRICE * 2), new ArrayList<>());
 
-        // Create order
-        orderDAO.createOrder(order, orderItems);
-
-        // Get all orders
-        List<Order> orders = orderDAO.getAllOrders();
-        assertNotNull(orders, "Orders list should not be null");
-        assertEquals(1, orders.size(), "Should have one order");
-        assertEquals(1, orders.get(0).getUserId(), "User ID should match");
-        assertEquals(OrderStatus.PENDING, orders.get(0).getStatus(), "Status should be PENDING");
-        assertEquals(199.98, orders.get(0).getTotal(), "Total amount should match");
+        List<Order> allOrders = orderDAO.getAllOrders();
+        assertEquals(initialCount + 2, allOrders.size(), "Should retrieve all orders");
     }
 
     @Test
-    void testGetOrderItems() {
-        // Create a product first
-        Product product = new Product(0, "Test Product", 99.99, 1, 10);
-        int productId = productDAO.createProduct(product);
-        product.setId(productId);
+    void testOrderItemsRelationship() {
+        // Create order with multiple items
+        Product secondProduct = new Product(
+                0,
+                "SecondProduct_" + UUID.randomUUID().toString().substring(0, 8),
+                PRODUCT_PRICE,
+                testCategoryId,
+                5
+        );
+        int secondProductId = productDAO.createProduct(secondProduct);
 
-        // Create order and order items
-        Order order = new Order(1, 199.98);
-        List<OrderItem> orderItems = new ArrayList<>();
-        orderItems.add(new OrderItem(0, product, 2, 99.99));
+        Order order = new Order(testUserId, PRODUCT_PRICE * 3);
+        List<OrderItem> items = List.of(
+                new OrderItem(0, productDAO.findById(testProductId), 1, PRODUCT_PRICE),
+                new OrderItem(0, productDAO.findById(secondProductId), 2, PRODUCT_PRICE)
+        );
 
-        // Create order
-        int orderId = orderDAO.createOrder(order, orderItems);
+        int orderId = orderDAO.createOrder(order, items);
+        List<OrderItem> retrievedItems = orderDAO.getOrderItems(orderId);
 
-        // Get order items
-        List<OrderItem> items = orderDAO.getOrderItems(orderId);
-        assertNotNull(items, "Order items should not be null");
-        assertEquals(1, items.size(), "Should have one order item");
-        assertEquals(productId, items.get(0).getProduct().getId(), "Product ID should match");
-        assertEquals(2, items.get(0).getQuantity(), "Quantity should match");
-        assertEquals(99.99, items.get(0).getPrice(), "Price should match");
+        assertEquals(2, retrievedItems.size(), "Should retrieve all order items");
+        assertEquals(3, retrievedItems.stream()
+                .mapToInt(OrderItem::getQuantity)
+                .sum(), "Total quantity should match");
     }
-} 
+
+    @Test
+    void testInvalidOrderOperations() {
+        // Test invalid user ID
+        Order invalidOrder = new Order(-1, PRODUCT_PRICE);
+        int invalidOrderId = orderDAO.createOrder(invalidOrder, new ArrayList<>());
+        assertEquals(-1, invalidOrderId, "Should fail with invalid user ID");
+
+        // Test invalid status update
+        assertDoesNotThrow(() -> orderDAO.updateOrderStatus(-1, OrderStatus.DELIVERED));
+
+        // Test empty order items
+        Order emptyOrder = new Order(testUserId, 0);
+        int emptyOrderId = orderDAO.createOrder(emptyOrder, new ArrayList<>());
+        assertFalse(emptyOrderId > 0, "Shouldn't allow orders with no items");
+    }
+
+}

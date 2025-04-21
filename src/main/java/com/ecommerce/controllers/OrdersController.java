@@ -8,8 +8,10 @@ import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.control.*;
+import javafx.scene.layout.HBox;
 import models.Order;
 import models.OrderItem;
+import models.OrderStatus;
 import util.SceneNavigator;
 
 import java.net.URL;
@@ -30,6 +32,8 @@ public class OrdersController implements Initializable {
     @FXML private TableColumn<OrderItem, Integer> itemQuantityCol;
     @FXML private TableColumn<OrderItem, Double> itemPriceCol;
     @FXML private TableColumn<OrderItem, Double> itemTotalCol;
+    @FXML private TableColumn<Order, OrderStatus> orderStatusCol;
+    @FXML private TableColumn<Order, Void> statusActionCol;
 
     private OrderDAO orderDAO = new OrderDAO();
     private ObservableList<Order> ordersList;
@@ -57,6 +61,46 @@ public class OrdersController implements Initializable {
                 new ReadOnlyObjectWrapper<>(cellData.getValue().getOrderDate().format(formatter))
         );
         orderTotalCol.setCellValueFactory(cellData -> cellData.getValue().totalProperty().asObject());
+        orderStatusCol.setCellValueFactory(cellData -> cellData.getValue().statusProperty());
+        statusActionCol.setCellFactory(param -> new TableCell<>() {
+            private final Button deliverButton = new Button("Deliver");
+            private final Button cancelButton = new Button("Cancel");
+            private final HBox buttons = new HBox(deliverButton, cancelButton);
+
+            {
+                buttons.setSpacing(5);
+
+                deliverButton.setOnAction(event -> {
+                    Order order = getTableView().getItems().get(getIndex());
+                    updateOrderStatus(order, OrderStatus.DELIVERED);
+                });
+
+                cancelButton.setOnAction(event -> {
+                    Order order = getTableView().getItems().get(getIndex());
+                    updateOrderStatus(order, OrderStatus.CANCELED);
+                });
+            }
+
+            @Override
+            protected void updateItem(Void item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty) {
+                    setGraphic(null);
+                } else {
+                    Order order = getTableView().getItems().get(getIndex());
+                    deliverButton.setDisable(order.getStatus() == OrderStatus.DELIVERED);
+                    cancelButton.setDisable(order.getStatus() == OrderStatus.CANCELED);
+                    setGraphic(buttons);
+                }
+            }
+        });
+    }
+
+    private void updateOrderStatus(Order order, OrderStatus newStatus) {
+        order.setStatus(newStatus);
+        orderDAO.updateOrderStatus(order.getId(), newStatus);
+        ordersTable.refresh(); // Refresh to update button states
+        orderItemsTable.refresh(); // Refresh related items if needed
     }
 
     private void setupOrderItemsTable() {

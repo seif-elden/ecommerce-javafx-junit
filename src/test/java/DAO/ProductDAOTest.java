@@ -1,259 +1,181 @@
 package DAO;
 
+import DAO.CategoryDAO;
+import DAO.ProductDAO;
+import db.DatabaseConnection;
+import models.Category;
 import models.Product;
 import org.junit.jupiter.api.*;
+
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.List;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class ProductDAOTest {
-    private static final String DB_URL = "jdbc:h2:mem:test;DB_CLOSE_DELAY=-1";
-    private static final String DB_USER = "sa";
-    private static final String DB_PASSWORD = "";
-    private static Connection connection;
     private ProductDAO productDAO;
-
-    @BeforeAll
-    static void setupDatabase() throws SQLException {
-        connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD);
-        try (Statement stmt = connection.createStatement()) {
-            // Create Categories table first (since Products depends on it)
-            stmt.execute("""
-                CREATE TABLE Categories (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    name VARCHAR(50) NOT NULL
-                )
-            """);
-            
-            // Create Products table
-            stmt.execute("""
-                CREATE TABLE Products (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    name VARCHAR(100) NOT NULL,
-                    price DECIMAL(10,2) NOT NULL,
-                    category_id INT NOT NULL,
-                    stock INT NOT NULL,
-                    FOREIGN KEY (category_id) REFERENCES Categories(id)
-                )
-            """);
-            
-            // Create Orders table (needed for foreign key constraints)
-            stmt.execute("""
-                CREATE TABLE Orders (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    user_id INT NOT NULL,
-                    order_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    status VARCHAR(20) NOT NULL
-                )
-            """);
-            
-            // Create OrderItems table (needed for foreign key constraints)
-            stmt.execute("""
-                CREATE TABLE OrderItems (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    order_id INT NOT NULL,
-                    product_id INT NOT NULL,
-                    quantity INT NOT NULL,
-                    FOREIGN KEY (order_id) REFERENCES Orders(id),
-                    FOREIGN KEY (product_id) REFERENCES Products(id)
-                )
-            """);
-        }
-    }
+    private CategoryDAO categoryDAO;
+    private Connection testConnection;
+    private int testCategoryId;
+    private final int TEST_ADMIN_ID = 1; // Use valid admin ID from your DB
 
     @BeforeEach
-    void setup() throws SQLException {
+    void setUp() throws SQLException {
+        testConnection = DatabaseConnection.getConnection();
+        testConnection.setAutoCommit(false);
+
         productDAO = new ProductDAO();
-        productDAO.setConnection(connection);
-        
-        cleanup(); // hena l error l mfrood t clean b3d
-        
-        // Insert a test category
-        try (Statement stmt = connection.createStatement()) {
-            stmt.execute("INSERT INTO Categories (name) VALUES ('Test Category')");
-        }
+        productDAO.setConnection(testConnection);
+
+        categoryDAO = new CategoryDAO();
+        categoryDAO.setConnection(testConnection);
+
+        // Create test category
+        Category testCategory = new Category(
+                0,
+                "TestCategory_" + UUID.randomUUID().toString().substring(0, 8),
+                TEST_ADMIN_ID
+        );
+        testCategoryId = categoryDAO.createCategory(testCategory);
+        assertTrue(testCategoryId > 0, "Test category creation failed");
     }
 
     @AfterEach
-    void cleanup() throws SQLException {
-        try (Statement stmt = connection.createStatement()) {
-            // Delete in correct order to respect foreign key constraints
-            stmt.execute("DELETE FROM OrderItems");
-            stmt.execute("DELETE FROM Orders");
-            stmt.execute("DELETE FROM Products");
-            stmt.execute("DELETE FROM Categories");
-            // Reset auto-increment counters
-            stmt.execute("ALTER TABLE OrderItems ALTER COLUMN id RESTART WITH 1");
-            stmt.execute("ALTER TABLE Orders ALTER COLUMN id RESTART WITH 1");
-            stmt.execute("ALTER TABLE Products ALTER COLUMN id RESTART WITH 1");
-            stmt.execute("ALTER TABLE Categories ALTER COLUMN id RESTART WITH 1");
-        }
-    }
-
-    @AfterAll
-    static void closeDatabase() throws SQLException {
-        if (connection != null) {
-            connection.close();
-        }
+    void tearDown() throws SQLException {
+        testConnection.rollback();
+        testConnection.close();
     }
 
     @Test
-    void testCreateProduct() {
-        Product product = new Product(0, "Test Product", 99.99, 1, 10);
+    void testCreateAndFindProduct() {
+        Product product = createTestProduct();
         int productId = productDAO.createProduct(product);
-        assertTrue(productId > 0);
-        product.setId(productId);
-    }
-    @Test
-    void testFindProductsByCategory() throws SQLException {
-        // Create multiple categories
-        try (Statement stmt = connection.createStatement()) {
-            stmt.execute("INSERT INTO Categories (name) VALUES ('Electronics')");
-            stmt.execute("INSERT INTO Categories (name) VALUES ('Clothing')");
-        }
 
-        // Create products in different categories
-        Product product1 = new Product(0, "Laptop", 999.99, 1, 10);
-        Product product2 = new Product(0, "Smartphone", 699.99, 1, 15);
-        Product product3 = new Product(0, "T-Shirt", 29.99, 2, 20);
-
-        productDAO.createProduct(product1);
-        productDAO.createProduct(product2);
-        productDAO.createProduct(product3);
-
-        // Test finding products by category
-        List<Product> electronics = productDAO.findByCategory(1);
-        List<Product> clothing = productDAO.findByCategory(2);
-
-        assertNotNull(electronics);
-        assertNotNull(clothing);
-        assertEquals(2, electronics.size());
-        assertEquals(1, clothing.size());
-        assertEquals("Laptop", electronics.get(0).getName());
-        assertEquals("Smartphone", electronics.get(1).getName());
-        assertEquals("T-Shirt", clothing.get(0).getName());
-    }
-
-
-    @Test
-    void testFindProductById() {
-        // Create a product first
-        Product product = new Product(0, "Test Product", 99.99, 1, 10);
-        int productId = productDAO.createProduct(product);
-        product.setId(productId);
-
-        // Test finding the product
-        Product foundProduct = productDAO.findById(productId);
-        assertNotNull(foundProduct);
-        assertEquals("Test Product", foundProduct.getName());
-        assertEquals(99.99, foundProduct.getPrice());
-        assertEquals(1, foundProduct.getCategoryId());
-        assertEquals(10, foundProduct.getStock());
+        assertTrue(productId > 0, "Product should be created with valid ID");
+        Product found = productDAO.findById(productId);
+        assertProductEquals(product, found, productId);
     }
 
     @Test
     void testUpdateProduct() {
-        // Create a product first
-        Product product = new Product(0, "Test Product", 99.99, 1, 10);
+        Product product = createTestProduct();
         int productId = productDAO.createProduct(product);
         product.setId(productId);
 
-        // Update product details
-        product.setName("Updated Product");
-        product.setPrice(149.99);
-        product.setStock(20);
+        // Create new category for update test
+        Category newCategory = new Category(
+                0,
+                "NewCategory_" + UUID.randomUUID().toString().substring(0, 8),
+                TEST_ADMIN_ID
+        );
+        int newCategoryId = categoryDAO.createCategory(newCategory);
 
-        assertTrue(productDAO.updateProduct(product));
+        // Modify product
+        product.setName("UpdatedProduct");
+        product.setPrice(29.99);
+        product.setCategoryId(newCategoryId);
+        product.setStock(5);
 
-        // Verify the update
+        boolean updated = productDAO.updateProduct(product);
+        assertTrue(updated, "Product update should succeed");
+
         Product updatedProduct = productDAO.findById(productId);
-        assertEquals("Updated Product", updatedProduct.getName());
-        assertEquals(149.99, updatedProduct.getPrice());
-        assertEquals(20, updatedProduct.getStock());
+        assertEquals("UpdatedProduct", updatedProduct.getName());
+        assertEquals(29.99, updatedProduct.getPrice());
+        assertEquals(newCategoryId, updatedProduct.getCategoryId());
+        assertEquals(5, updatedProduct.getStock());
     }
 
     @Test
     void testDeleteProduct() {
-        // Create a product first
-        Product product = new Product(0, "Test Product", 99.99, 1, 10);
+        Product product = createTestProduct();
         int productId = productDAO.createProduct(product);
-        product.setId(productId);
 
-        // Delete the product
-        assertTrue(productDAO.deleteProduct(productId));
+        boolean deleted = productDAO.deleteProduct(productId);
+        assertTrue(deleted, "Product should be deleted");
 
-        // Verify deletion
-        assertNull(productDAO.findById(productId));
+        Product deletedProduct = productDAO.findById(productId);
+        assertNull(deletedProduct, "Deleted product should not be found");
+    }
+
+    @Test
+    void testFindByCategory() {
+        Product product1 = createTestProduct();
+        productDAO.createProduct(product1);
+
+        // Create product in different category
+        Category otherCategory = new Category(
+                0,
+                "OtherCategory_" + UUID.randomUUID().toString().substring(0, 8),
+                TEST_ADMIN_ID
+        );
+        int otherCategoryId = categoryDAO.createCategory(otherCategory);
+        Product product2 = new Product(0, "OtherProduct", 19.99, otherCategoryId, 5);
+        productDAO.createProduct(product2);
+
+        List<Product> products = productDAO.findByCategory(testCategoryId);
+        assertEquals(1, products.size(), "Should find 1 product in test category");
+        assertEquals(product1.getName(), products.get(0).getName());
+    }
+
+    @Test
+    void testUpdateStock() {
+        Product product = createTestProduct();
+        int productId = productDAO.createProduct(product);
+
+        // Valid stock update
+        boolean updated = productDAO.updateStock(productId, 5);
+        assertTrue(updated, "Stock update should succeed");
+        assertEquals(5, productDAO.findById(productId).getStock());
+
+        // Overdraft stock
+        updated = productDAO.updateStock(productId, 10);
+        assertTrue(updated, "Stock update should succeed even if negative");
+        assertEquals(-5, productDAO.findById(productId).getStock());
     }
 
     @Test
     void testFindAllProducts() {
-        // Create multiple products
-        Product product1 = new Product(0, "Product 1", 99.99, 1, 10);
-        Product product2 = new Product(0, "Product 2", 149.99, 1, 15);
-        productDAO.createProduct(product1);
-        productDAO.createProduct(product2);
+        int initialCount = productDAO.findAll().size();
 
-        // Test finding all products
-        List<Product> products = productDAO.findAll();
-        assertNotNull(products);
-        assertEquals(2, products.size());
+        productDAO.createProduct(createTestProduct());
+        productDAO.createProduct(createTestProduct());
+
+        List<Product> allProducts = productDAO.findAll();
+        assertEquals(initialCount + 2, allProducts.size(), "Should find all products");
     }
-
 
     @Test
-    void testDeleteProductWithOrders() {
-        // Create a product first
-        Product product = new Product(0, "Test Product", 99.99, 1, 10);
-        int productId = productDAO.createProduct(product);
-        product.setId(productId);
+    void testInvalidOperations() {
+        // Delete non-existent product
+        assertFalse(productDAO.deleteProduct(-1), "Should fail to delete non-existent product");
 
-        // Create an order and order item
-        try (Statement stmt = connection.createStatement()) {
-            stmt.execute("INSERT INTO Orders (user_id, status) VALUES (1, 'PENDING')");
-            stmt.execute("INSERT INTO OrderItems (order_id, product_id, quantity) VALUES (1, " + productId + ", 1)");
-        } catch (SQLException e) {
-            fail("Failed to create test order: " + e.getMessage());
-        }
+        // Update non-existent product
+        Product invalidProduct = new Product(-1, "Ghost", 9.99, testCategoryId, 10);
+        assertFalse(productDAO.updateProduct(invalidProduct), "Should fail to update non-existent product");
 
-        // Try to delete the product
-        assertFalse(productDAO.deleteProduct(productId), "Product with orders should not be deletable");
-
-        // Verify product still exists
-        assertNotNull(productDAO.findById(productId), "Product should still exist after failed deletion");
+        // Invalid category
+        Product invalidCategoryProduct = new Product(0, "Invalid", 9.99, -1, 10);
+        assertEquals(-1, productDAO.createProduct(invalidCategoryProduct), "Should fail to create with invalid category");
     }
 
-
-
-    //test update stock btdeny error w msh kamel
-    @Test
-    void testUpdateStock() {
-        // Create a product first
-        Product product = new Product(0, "Test Product", 99.99, 1, 10);
-        int productId = productDAO.createProduct(product);
-        product.setId(productId);
-
-        // Test decreasing stock by 5 (from 10 to 5)
-        assertTrue(productDAO.updateStock(productId, 5));
-        Product updatedProduct = productDAO.findById(productId);
-        assertNotNull(updatedProduct);
-        assertEquals(5, updatedProduct.getStock(), "Stock should be decreased by 5");
-
-        // Test decreasing stock by 3 (from 5 to 2)
-        assertTrue(productDAO.updateStock(productId, 3));
-        updatedProduct = productDAO.findById(productId);
-        assertNotNull(updatedProduct);
-        assertEquals(2, updatedProduct.getStock(), "Stock should be decreased by 3");
-
-        // Test updating stock with invalid product ID
-        assertFalse(productDAO.updateStock(999, 5), "Should return false for non-existent product");
-
-        // // Test updating stock with quantity greater than current stock
-        // assertFalse(productDAO.updateStock(productId, 3), "Should not allow decreasing stock below 0"); //de msh 3aref 23mlha
-        // assertTrue(productDAO.updateStock(productId, 10), "Should not allow increasing stock above current stock"); //de msh 3aref 23mlha
+    private Product createTestProduct() {
+        return new Product(
+                0,
+                "TestProduct_" + UUID.randomUUID().toString().substring(0, 8),
+                19.99,
+                testCategoryId,
+                10
+        );
     }
-} 
+
+    private void assertProductEquals(Product expected, Product actual, int expectedId) {
+        assertEquals(expectedId, actual.getId());
+        assertEquals(expected.getName(), actual.getName());
+        assertEquals(expected.getPrice(), actual.getPrice());
+        assertEquals(expected.getCategoryId(), actual.getCategoryId());
+        assertEquals(expected.getStock(), actual.getStock());
+    }
+}

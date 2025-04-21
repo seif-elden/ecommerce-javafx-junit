@@ -37,3 +37,7 @@
 .tab-pane .tab-header-area .tab-header-background {
     -fx-background-color: #ecf0f1;
 }
+.table-row-cell:selected:focused {
+    -fx-background-color: #a6a3a2;
+    -fx-text-fill: black;
+}
