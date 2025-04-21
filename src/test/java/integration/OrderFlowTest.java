@@ -92,10 +92,11 @@ class OrderFlowTest {
         Product product1 = createTestProduct("Laptop", 10);
         Product product2 = createTestProduct("Mouse", 20);
 
-        // Add to cart
+        // Add to cart and commit
         cartDAO.addToCart(testUserId, product1.getId(), 1);
         cartDAO.addToCart(testUserId, product2.getId(), 2);
-
+        connection.commit(); // Commit cart items
+        connection.setAutoCommit(false); // Start new transaction for order
         // Create order
         double expectedTotal = (PRODUCT_PRICE * 1) + (PRODUCT_PRICE * 2);
         Order order = new Order(testUserId, expectedTotal);
@@ -122,8 +123,10 @@ class OrderFlowTest {
     void testOrderWithInsufficientStock() throws SQLException {
         Product limitedProduct = createTestProduct("RareItem", 1);
 
-        // Add more than available stock
+        // Add to cart and commit
         cartDAO.addToCart(testUserId, limitedProduct.getId(), 2);
+        connection.commit(); // Commit cart items
+        connection.setAutoCommit(false); // Start new transaction for order
 
         List<OrderItem> orderItems = convertCartToOrderItems(testUserId);
         Order order = new Order(testUserId, PRODUCT_PRICE * 2);
