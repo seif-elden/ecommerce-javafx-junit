@@ -127,24 +127,9 @@ public class CartController implements Initializable {
             int orderId = orderDAO.createOrder(order, orderItems);
 
             if (orderId != -1) {
-                // Step 5: For each CartItem, update the product's stock quantity in the DB.
-                boolean allStocksUpdated = true;
-                for (CartItem item : items) {
-                    // Update stock: subtract cart item quantity from product's stock
-                    boolean updated = productDAO.updateStock(item.getProduct().getId(), item.getQuantity());
-                    if (!updated) {
-                        allStocksUpdated = false;
-                        // Optionally log or alert an error for this specific product
-                    }
-                }
-
-                // Optionally, you can warn the user if any stock update failed.
-                if (!allStocksUpdated) {
-                    new Alert(Alert.AlertType.WARNING, "Some products were not updated correctly.").showAndWait();
-                }
 
                 // Step 6: Clear the cart (if the deletion/update is successful)
-                if (cartDAO.clearCart(currentUserId)) {
+                if (cartDAO.getCartItems(currentUserId).size()==0) {
                     cartItems.clear();
                     updateGrandTotal();
                     new Alert(Alert.AlertType.INFORMATION, "Checkout successful! Order ID: " + orderId).showAndWait();

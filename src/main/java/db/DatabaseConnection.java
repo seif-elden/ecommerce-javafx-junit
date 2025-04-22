@@ -6,6 +6,8 @@ import java.sql.SQLException;
 
 public class DatabaseConnection {
     private static Connection connection = null;
+
+    //test DB
     private static final String URL = "jdbc:mysql://mysql-503c14d-seif-ecommerce.b.aivencloud.com:10135/ecommerce?sslMode=REQUIRED";
     private static final String USER = "avnadmin";
     private static final String PASSWORD = "AVNS_ijiDTYvK5LaaVgUVnx6";
