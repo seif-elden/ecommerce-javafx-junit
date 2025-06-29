@@ -12,7 +12,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class CategoryDAOTest {
+public class CategoryDAOTest {
     private CategoryDAO categoryDAO;
     private Connection testConnection;
     private String uniqueCategoryName;

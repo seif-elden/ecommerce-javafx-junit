@@ -14,7 +14,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class ProductDAOTest {
+public class ProductDAOTest {
     private ProductDAO productDAO;
     private CategoryDAO categoryDAO;
     private Connection testConnection;

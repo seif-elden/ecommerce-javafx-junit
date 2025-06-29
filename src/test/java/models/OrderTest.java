@@ -7,7 +7,7 @@ import static models.OrderStatus.PENDING;
 import static org.junit.jupiter.api.Assertions.*;
 import java.time.LocalDateTime;
 
-class OrderTest {
+public class OrderTest {
     private Order order;
     private LocalDateTime testDate;
 

@@ -4,7 +4,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
-class CategoryTest {
+public class CategoryTest {
     private Category category;
 
     @BeforeEach

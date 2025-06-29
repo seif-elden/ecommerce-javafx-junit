@@ -16,7 +16,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class OrderDAOTest {
+public class OrderDAOTest {
     private OrderDAO orderDAO;
     private UserDAO userDAO;
     private ProductDAO productDAO;

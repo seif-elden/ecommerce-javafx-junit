@@ -12,7 +12,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class CartDAOTest {
+public class CartDAOTest {
     private CartDAO cartDAO;
     private ProductDAO productDAO;
     private UserDAO userDAO;
